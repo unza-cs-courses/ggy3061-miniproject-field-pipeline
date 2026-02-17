@@ -62,15 +62,6 @@ jobs:
             2>&1 | tee visible_output.txt
           echo "visible_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      - name: Run hidden tests
-        id: hidden-tests
-        if: always()
-        run: |
-          pytest tests/hidden/ -v --tb=short \
-            --json-report --json-report-file=hidden_results.json \
-            2>&1 | tee hidden_output.txt
-          echo "hidden_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
-
       - name: Calculate grade and write summary
         if: always()
         run: |
@@ -85,35 +76,24 @@ jobs:
                   summary = data.get("summary", {})
                   passed = summary.get("passed", 0)
                   total = summary.get("total", 0)
-                  failed = summary.get("failed", 0)
-                  errors = summary.get("error", 0)
-                  return passed, total, failed, errors
+                  return passed, total
               except Exception:
-                  return 0, 0, 0, 0
+                  return 0, 0
 
-          vis_passed, vis_total, vis_failed, vis_errors = load_results("visible_results.json")
-          hid_passed, hid_total, hid_failed, hid_errors = load_results("hidden_results.json")
+          vis_passed, vis_total = load_results("visible_results.json")
 
-          # Visible: 40 points, Hidden: 30 points
-          vis_score = round((vis_passed / vis_total) * 40) if vis_total > 0 else 0
-          hid_score = round((hid_passed / hid_total) * 30) if hid_total > 0 else 0
-          total_score = vis_score + hid_score
+          score = round((vis_passed / vis_total) * 40) if vis_total > 0 else 0
 
           summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "")
 
           lines = []
           lines.append("## Mini-Project: Field Sample Pipeline - Test Results")
           lines.append("")
-          lines.append("### Visible Tests (40%)")
+          lines.append("### Visible Tests")
           lines.append(f"- Passed: **{vis_passed}/{vis_total}**")
-          lines.append(f"- Score: **{vis_score}/40**")
+          lines.append(f"- **Visible Test Score: {score}/40**")
           lines.append("")
-          lines.append("### Hidden Tests (30%)")
-          lines.append(f"- Passed: **{hid_passed}/{hid_total}**")
-          lines.append(f"- Score: **{hid_score}/30**")
-          lines.append("")
-          lines.append("### Total Automated Score")
-          lines.append(f"**{total_score}/70**")
+          lines.append("*Hidden tests (30 points) will be graded separately after the deadline.*")
           lines.append("")
           lines.append("*Remaining 30%: Code quality (20%) and plagiarism check (-10% max)*")
           lines.append("")
@@ -133,8 +113,6 @@ jobs:
           name: test-results
           path: |
             visible_results.json
-            hidden_results.json
             visible_output.txt
-            hidden_output.txt
             output/
           retention-days: 30
